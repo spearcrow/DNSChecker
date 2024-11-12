@@ -32,7 +32,7 @@ def validate_main_domain(domain):
         return True
     raise ValueError(f"{domain} is not a valid domain.")
 
-def check_domain_record(domain, resolver_ip=None):
+def check_domain_record(domain, resolver_ip=None, dns_type=None):
     """
     Check the DNS A record for a given domain.
 
@@ -53,9 +53,9 @@ def check_domain_record(domain, resolver_ip=None):
     if resolver_ip:
         resolver.nameservers = [socket.gethostbyname(resolver_ip)]
     try:
-        answers = resolver.resolve(domain, 'A')
+        answers = resolver.resolve(domain, dns_type)
         record = [str(rdata) for rdata in answers]
-        return f'{domain} has address {record}'
+        return f'{record}'
     except dns.resolver.NXDOMAIN:
         return f'{domain} does not exist.'
     except dns.resolver.Timeout:
@@ -104,6 +104,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Check DNS records for a domain.')
     parser.add_argument('domain', help='The domain to check.')
     parser.add_argument('--resolver', help='The DNS resolver to use (optional).')
+    parser.add_argument('--type', help='The type of DNS record to check (optional).', default='A')
 
     args = parser.parse_args()
 
@@ -123,7 +124,10 @@ if __name__ == "__main__":
             combined_nameservers = domain_nameserver['nameservers']
 
         for ns in combined_nameservers:
-            print(f'Using nameserver {ns}: {check_domain_record(args.domain, ns)}')
+            result = check_domain_record(args.domain, ns, args.type)
+            if isinstance(result, list) and len(result) > 0:
+                print(f'Record reported by {ns}:\n{result}\n')
+            print(f'Record reported by {ns}:\n{check_domain_record(args.domain, ns, args.type)}\n')
 
     except (json.JSONDecodeError, dns.exception.DNSException, socket.gaierror) as e:
         print(f'An error occurred: {e}')
